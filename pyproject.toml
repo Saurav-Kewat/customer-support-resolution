@@ -18,6 +18,8 @@ dependencies = [
     "openai==1.11.0",
     "python-dotenv==1.0.0",
     "httpx==0.28.1",
+    "fastapi>=0.100.0",
+    "uvicorn>=0.23.0",
 ]
 
 [project.optional-dependencies]
@@ -30,6 +32,9 @@ dev = [
 [project.urls]
 Repository = "https://github.com/Saurav-Kewat/customer-support-resolution"
 Documentation = "https://github.com/Saurav-Kewat/customer-support-resolution#readme"
+
+[project.scripts]
+server = "server:main"
 
 [tool.setuptools]
 packages = ["customer_support_env"]
