@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "customer-support-resolution"
+version = "1.0.0"
+description = "AI Customer Support Resolution System - OpenEnv Benchmark"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "OpenEnv Team", email = "contact@openenv.ai"}
+]
+
+dependencies = [
+    "pydantic==2.5.0",
+    "openai==1.11.0",
+    "python-dotenv==1.0.0",
+    "httpx==0.28.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "black>=22.0",
+    "ruff>=0.1.0",
+]
+
+[project.urls]
+Repository = "https://github.com/Saurav-Kewat/customer-support-resolution"
+Documentation = "https://github.com/Saurav-Kewat/customer-support-resolution#readme"
+
+[tool.setuptools]
+packages = ["customer_support_env"]
+
+[tool.black]
+line-length = 100
+target-version = ["py310"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
