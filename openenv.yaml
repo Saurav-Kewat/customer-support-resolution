@@ -1,0 +1,243 @@
+---
+# OpenEnv Specification for AI Customer Support Resolution System
+
+openenv_version: "1.0"
+environment:
+  name: "customer_support_resolution"
+  version: "1.0.0"
+  description: |
+    An AI-driven customer support resolution environment where agents learn to handle
+    real-world support tickets with varying complexity levels. The system provides
+    meaningful reward signals based on correctness, efficiency, and customer satisfaction.
+  
+  author: "OpenEnv Contributor"
+  license: "MIT"
+  
+  # Three difficulty levels required by spec
+  tasks:
+    - id: "email_triage"
+      name: "Email Triage (Easy)"
+      difficulty: "easy"
+      description: |
+        Categorize incoming customer emails into predefined categories.
+        Agent must correctly classify tickets to maximize reward.
+      categories:
+        - billing
+        - technical
+        - account
+        - feedback
+        - other
+      action_format:
+        type: "categorize"
+        required_fields: ["category"]
+      grading:
+        criteria: "Accuracy of email categorization"
+        max_score: 1.0
+        partial_credit: false
+    
+    - id: "ticket_priority"
+      name: "Ticket Priority Assignment (Medium)"
+      difficulty: "medium"
+      description: |
+        Assess support tickets and assign appropriate priority levels
+        with recommended next steps for resolution.
+      priorities:
+        - urgent
+        - high
+        - medium
+        - low
+      next_steps:
+        - escalate_to_engineering
+        - process_payment_retry
+        - send_documentation
+        - investigate_data_loss
+        - offer_extension
+      action_format:
+        type: "assign_priority"
+        required_fields: ["priority", "suggested_next_step"]
+      grading:
+        criteria: "Correct priority assignment and appropriate next steps"
+        max_score: 1.0
+        partial_credit: true
+    
+    - id: "multi_turn_resolution"
+      name: "Multi-turn Resolution (Hard)"
+      difficulty: "hard"
+      description: |
+        Handle multi-turn customer support conversations with empathetic,
+        substantive responses that move toward issue resolution.
+      action_format:
+        type: "respond"
+        required_fields: ["response_text"]
+      grading:
+        criteria: |
+          Response quality, empathy, substantiveness, and issue resolution progress.
+          Agents earn rewards for helpful, contextually appropriate responses.
+        max_score: 1.0
+        partial_credit: true
+
+  # Action space definition
+  action_space:
+    type: "Discrete"
+    description: "Pydantic model-based action with task-specific fields"
+    fields:
+      - name: "task_type"
+        type: "enum"
+        values: ["email_triage", "ticket_priority", "multi_turn_resolution"]
+        description: "Which task this action applies to"
+      - name: "action_type"
+        type: "string"
+        description: "Type of action (categorize, assign_priority, respond)"
+      - name: "category"
+        type: "enum"
+        required: false
+        description: "[EASY ONLY] Category assignment"
+      - name: "priority"
+        type: "enum"
+        required: false
+        description: "[MEDIUM ONLY] Priority level"
+      - name: "suggested_next_step"
+        type: "string"
+        required: false
+        description: "[MEDIUM ONLY] Next resolution step"
+      - name: "response_text"
+        type: "string"
+        required: false
+        description: "[HARD ONLY] Agent's response to customer"
+
+  # Observation space definition
+  observation_space:
+    type: "Object"
+    description: "Pydantic model with ticket and context information"
+    fields:
+      - name: "task_type"
+        type: "enum"
+        description: "Current task type (email_triage, ticket_priority, multi_turn_resolution)"
+      - name: "ticket_id"
+        type: "string"
+        description: "Unique ticket identifier"
+      - name: "customer_message"
+        type: "string"
+        description: "Customer's current message or email content"
+      - name: "previous_context"
+        type: "string"
+        required: false
+        description: "Prior conversation context or ticket history"
+      - name: "timestamp"
+        type: "string"
+        description: "ISO timestamp when ticket was created"
+      - name: "customer_sentiment"
+        type: "enum"
+        values: ["positive", "neutral", "negative"]
+        description: "Detected sentiment from customer message"
+      - name: "current_resolution_steps"
+        type: "array"
+        description: "Steps already taken toward resolution"
+      - name: "step_number"
+        type: "integer"
+        description: "Current step in the episode (1-8)"
+
+  # Reward space definition
+  reward_space:
+    type: "Object"
+    description: "Detailed reward breakdown for each action"
+    fields:
+      - name: "total_reward"
+        type: "float"
+        range: [0.0, 1.0]
+        description: "Total reward for this step"
+      - name: "correctness_score"
+        type: "float"
+        range: [0.0, 1.0]
+        description: "How correct the action was"
+      - name: "efficiency_bonus"
+        type: "float"
+        range: [0.0, 0.2]
+        description: "Bonus for solving quickly"
+      - name: "customer_satisfaction"
+        type: "float"
+        range: [0.0, 1.0]
+        description: "Estimated satisfaction signal"
+      - name: "details"
+        type: "string"
+        description: "Human-readable explanation of rewards"
+
+  # Episode configuration
+  episode:
+    max_steps: 8
+    reset_returns_observation: true
+    step_returns: ["observation", "reward", "done", "info"]
+    state_method_available: true
+
+  # API specification
+  api:
+    methods:
+      - name: "reset"
+        description: "Initialize environment and return initial observation"
+        returns: "Observation"
+        raises:
+          - "ValueError if task_type invalid"
+      
+      - name: "step"
+        description: "Execute one step of the environment"
+        parameters:
+          - name: "action"
+            type: "Action"
+            description: "Action to execute"
+        returns:
+          - observation: "Observation"
+          - reward: "Reward"
+          - done: "bool"
+          - info: "dict"
+      
+      - name: "state"
+        description: "Return full current environment state"
+        returns: "dict"
+
+  # Environment dynamics
+  dynamics:
+    deterministic: false
+    stochastic_elements:
+      - "Random ticket selection from sample dataset"
+      - "Multi-turn paths with sentiment progression"
+    episode_termination: "When max_steps (8) is reached or agent achieves goal"
+
+  # Data representation
+  data:
+    sample_tickets_per_task: 3
+    total_unique_scenarios: 12
+    features_per_ticket:
+      - Customer sentiment (positive/neutral/negative)
+      - Message text and context
+      - Correct answer (for validation)
+      - Difficulty indicators
+
+  # Validation and testing
+  validation:
+    grader_consistency: "All graders provide reproducible, deterministic scores"
+    reward_normalization: "All rewards normalized to [0.0, 1.0] range"
+    episode_metrics:
+      - total_reward_sum
+      - correctness_achieved
+      - steps_to_completion
+      - customer_satisfaction_trend
+
+metadata:
+  tags:
+    - "customer_support"
+    - "nlp"
+    - "multi_task"
+    - "real_world"
+    - "dense_rewards"
+  keywords:
+    - "email triage"
+    - "ticket prioritization"
+    - "customer resolution"
+    - "support automation"
+  domain: "Customer Support & Service"
+  difficulty_range: "Easy to Hard"
+  suitable_for:
+    - "LLM agents"
+    - "Reinforcement learning"
+    - "Multi-task learning"
+    - "Language understanding"
