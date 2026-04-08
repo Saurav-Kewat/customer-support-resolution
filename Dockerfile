@@ -30,6 +30,7 @@ ENV MODEL_NAME=Qwen/Qwen2.5-72B-Instruct
 ENV CUSTOMER_SUPPORT_TASK=email_triage
 ENV CUSTOMER_SUPPORT_SEED=42
 ENV MAX_EPISODES=1
+ENV HF_SPACE_MODE=true
 
-# Run inference script by default
+# Run inference script by default (runs as web server on HF Spaces)
 CMD ["python", "Inference.py"]

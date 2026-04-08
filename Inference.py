@@ -13,13 +13,17 @@ Optional:
   - CUSTOMER_SUPPORT_TASK: Task type (email_triage, ticket_priority, multi_turn_resolution)
   - CUSTOMER_SUPPORT_SEED: Random seed for reproducibility
   - MAX_EPISODES: Number of episodes to run (default: 1, preserves credits)
+  - HF_SPACE_MODE: Set to 'true' to run as web server for HF Spaces
 
 Set MAX_EPISODES for more runs:
   export MAX_EPISODES=3  # Run 3 episodes then exit
 """
 
 import os
+import sys
 import textwrap
+import threading
+import time
 from typing import List, Optional
 
 import httpx
@@ -307,10 +311,20 @@ class InferenceRunner:
         return success, steps_taken, total_reward, all_rewards
 
 
-def main():
-    """Main entry point - runs inference with configurable episode limit."""
-    import time
-    
+# Global log buffer for web server mode
+_log_buffer = []
+_log_lock = threading.Lock()
+
+
+def append_log(message: str):
+    """Append message to log buffer and print to stdout."""
+    with _log_lock:
+        _log_buffer.append(message)
+    print(message, flush=True)
+
+
+def run_inference_episodes():
+    """Run inference episodes (called from main thread or web server thread)."""
     # Read max episodes from environment (default: 1 to preserve credits)
     max_episodes = int(os.getenv("MAX_EPISODES", "1"))
     
@@ -321,32 +335,130 @@ def main():
         
         while episode_count < max_episodes:
             episode_count += 1
-            print(f"\n{'='*60}", flush=True)
-            print(f"Episode {episode_count}/{max_episodes}", flush=True)
-            print(f"{'='*60}\n", flush=True)
+            append_log(f"\n{'='*60}")
+            append_log(f"Episode {episode_count}/{max_episodes}")
+            append_log(f"{'='*60}\n")
             
             try:
                 success, steps, score, rewards = runner.run_episode()
                 
                 if not success:
-                    print(f"[WARNING] Episode {episode_count} failed, continuing...", flush=True)
+                    append_log(f"[WARNING] Episode {episode_count} failed, continuing...")
             
             except Exception as e:
-                print(f"[ERROR] Episode {episode_count} error: {e}", flush=True)
+                append_log(f"[ERROR] Episode {episode_count} error: {e}")
             
             # Wait before next episode (only if not last episode)
             if episode_count < max_episodes:
-                print(f"[INFO] Waiting 5 seconds before next episode...\n", flush=True)
+                append_log(f"[INFO] Waiting 5 seconds before next episode...\n")
                 time.sleep(5)
         
-        print(f"\n[INFO] Completed {episode_count} episode(s). Exiting.", flush=True)
+        append_log(f"\n[INFO] Completed {episode_count} episode(s).")
     
     except KeyboardInterrupt:
-        print(f"\n[INFO] Interrupted by user after {episode_count} episodes.", flush=True)
-        exit(0)
+        append_log(f"\n[INFO] Interrupted by user after {episode_count} episodes.")
     except Exception as e:
-        print(f"[ERROR] Fatal error: {e}", flush=True)
-        exit(1)
+        append_log(f"[ERROR] Fatal error: {e}")
+
+
+def start_web_server():
+    """Start a simple HTTP web server for HF Spaces."""
+    from http.server import HTTPServer, SimpleHTTPRequestHandler
+    import json
+    
+    class InferenceHandler(SimpleHTTPRequestHandler):
+        """HTTP handler for serving inference status and logs."""
+        
+        def log_message(self, format, *args):
+            """Suppress default HTTP logging."""
+            pass
+        
+        def do_GET(self):
+            """Handle GET requests."""
+            if self.path == '/' or self.path == '/status':
+                # Serve status
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                status = {
+                    "status": "running",
+                    "system": "AI Customer Support Resolution System",
+                    "logs_available": True
+                }
+                self.wfile.write(json.dumps(status).encode())
+            
+            elif self.path == '/logs':
+                # Serve logs
+                self.send_response(200)
+                self.send_header('Content-type', 'text/plain')
+                self.end_headers()
+                with _log_lock:
+                    logs_text = "\n".join(_log_buffer)
+                self.wfile.write(logs_text.encode())
+            
+            elif self.path == '/health':
+                # Health check
+                self.send_response(200)
+                self.send_header('Content-type', 'text/plain')
+                self.end_headers()
+                self.wfile.write(b"OK")
+            
+            else:
+                self.send_response(404)
+                self.end_headers()
+    
+    append_log("[INFO] Starting HTTP web server on port 7860...")
+    server = HTTPServer(('0.0.0.0', 7860), InferenceHandler)
+    
+    try:
+        append_log("[INFO] Web server listening on http://0.0.0.0:7860")
+        server.serve_forever()
+    except KeyboardInterrupt:
+        append_log("[INFO] Web server shutting down...")
+        server.shutdown()
+
+
+def main():
+    """Main entry point - runs inference with optional web server for HF Spaces."""
+    # Check if running in HF Spaces mode
+    hf_space_mode = os.getenv("HF_SPACE_MODE", "false").lower() == "true"
+    
+    append_log("[INFO] Inference System Starting")
+    append_log(f"[INFO] HF_SPACE_MODE: {hf_space_mode}")
+    append_log(f"[INFO] MAX_EPISODES: {os.getenv('MAX_EPISODES', '1')}")
+    
+    if hf_space_mode:
+        # Start web server in background thread
+        server_thread = threading.Thread(target=start_web_server, daemon=False)
+        server_thread.start()
+        
+        # Give server time to start
+        time.sleep(1)
+        
+        # Run inference in main thread
+        append_log("[INFO] Starting inference episodes...")
+        run_inference_episodes()
+        
+        # Keep server running for a bit after inference completes
+        # (allows HF Spaces to retrieve final logs)
+        append_log("[INFO] Inference complete. Server will stay alive for log retrieval...")
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            append_log("[INFO] Shutting down...")
+            sys.exit(0)
+    else:
+        # Simple CLI mode (original behavior)
+        try:
+            run_inference_episodes()
+            sys.exit(0)
+        except KeyboardInterrupt:
+            append_log(f"\n[INFO] Interrupted by user.")
+            sys.exit(0)
+        except Exception as e:
+            append_log(f"[ERROR] Fatal error: {e}")
+            sys.exit(1)
 
 
 if __name__ == "__main__":
