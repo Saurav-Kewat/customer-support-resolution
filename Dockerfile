@@ -12,6 +12,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy project files first (before pip install)
 COPY customer_support_env.py .
 COPY Inference.py .
+COPY server.py .
 COPY requirements.txt .
 COPY openenv.yaml .
 COPY README.md .
@@ -30,6 +31,10 @@ ENV MODEL_NAME=Qwen/Qwen2.5-72B-Instruct
 ENV CUSTOMER_SUPPORT_TASK=email_triage
 ENV CUSTOMER_SUPPORT_SEED=42
 ENV MAX_EPISODES=1
+ENV PORT=8000
 
-# Run inference script by default (CLI mode for OpenEnv validation)
-CMD ["python", "Inference.py"]
+# Expose port for OpenEnv API server
+EXPOSE 8000
+
+# Run OpenEnv API server (required for validation - exposes /reset, /step, /state endpoints)
+CMD ["python", "server.py"]
