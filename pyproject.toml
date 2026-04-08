@@ -15,9 +15,10 @@ authors = [
 
 dependencies = [
     "pydantic==2.5.0",
-    "openai==1.11.0",
+    "openai>=2.7.2",
     "python-dotenv==1.0.0",
     "httpx==0.28.1",
+    "openenv-core==0.2.0",
     "fastapi>=0.100.0",
     "uvicorn>=0.23.0",
 ]
@@ -34,7 +35,7 @@ Repository = "https://github.com/Saurav-Kewat/customer-support-resolution"
 Documentation = "https://github.com/Saurav-Kewat/customer-support-resolution#readme"
 
 [project.scripts]
-server = "server:main"
+server = "server.app:main"
 
 [tool.setuptools]
 packages = ["customer_support_env"]
