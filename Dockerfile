@@ -31,10 +31,10 @@ ENV MODEL_NAME=Qwen/Qwen2.5-72B-Instruct
 ENV CUSTOMER_SUPPORT_TASK=email_triage
 ENV CUSTOMER_SUPPORT_SEED=42
 ENV MAX_EPISODES=1
-ENV PORT=8000
+ENV PORT=7860
 
-# Expose port for OpenEnv API server
-EXPOSE 8000
+# Expose port for OpenEnv API server (HF Spaces uses 7860)
+EXPOSE 7860
 
 # Run OpenEnv API server (required for validation - exposes /reset, /step, /state endpoints)
 CMD ["python", "server.py"]

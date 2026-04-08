@@ -20,7 +20,7 @@ _task_type = None
 # Configuration
 SEED = int(os.getenv("CUSTOMER_SUPPORT_SEED", "42"))
 TASK_NAME = os.getenv("CUSTOMER_SUPPORT_TASK", "email_triage")
-PORT = int(os.getenv("PORT", "8000"))
+PORT = int(os.getenv("PORT", "7860"))  # HF Spaces default port
 
 # Task type mapping
 TASK_MAP = {
@@ -34,8 +34,12 @@ class OpenEnvHandler(BaseHTTPRequestHandler):
     """HTTP handler for OpenEnv API endpoints."""
     
     def log_message(self, format, *args):
-        """Suppress default HTTP logging."""
-        pass
+        """Log messages to both stderr and stdout for debugging."""
+        message = "%s - - [%s] %s\n" % (self.client_address[0], self.log_date_time_string(), format%args)
+        sys.stderr.write(message)
+        sys.stderr.flush()
+        # Also log to stdout for HF Spaces visibility
+        print(message.strip())
     
     def do_POST(self):
         """Handle POST requests to /reset, /step, /state."""
@@ -148,23 +152,29 @@ class OpenEnvHandler(BaseHTTPRequestHandler):
 
 def main():
     """Start the API server."""
-    print(f"Starting OpenEnv API server on port {PORT}", file=sys.stderr)
-    print(f"Task: {TASK_NAME}, Seed: {SEED}", file=sys.stderr)
-    
-    server = HTTPServer(('0.0.0.0', PORT), OpenEnvHandler)
-    
-    print(f"Server ready at http://0.0.0.0:{PORT}", file=sys.stderr)
-    print("Endpoints:", file=sys.stderr)
-    print("  POST /reset   - Reset environment", file=sys.stderr)
-    print("  POST /step    - Execute one step", file=sys.stderr)
-    print("  POST /state   - Get state", file=sys.stderr)
-    print("  GET  /health  - Health check", file=sys.stderr)
+    print("="*60)
+    print(f"Starting OpenEnv API Server")
+    print(f"Port: {PORT} (HF Spaces)")
+    print(f"Task: {TASK_NAME}")
+    print(f"Seed: {SEED}")
+    print("="*60)
+    print("Endpoints:")
+    print("  POST /reset   - Reset environment → returns observation")
+    print("  POST /step    - Execute one step → returns observation, reward, done")
+    print("  POST /state   - Get environment state")
+    print("  GET  /health  - Health check")
+    print("="*60)
+    print(f"Listening at http://0.0.0.0:{PORT}", flush=True)
     
     try:
+        server = HTTPServer(('0.0.0.0', PORT), OpenEnvHandler)
         server.serve_forever()
+    except Exception as e:
+        print(f"ERROR: Failed to start server: {e}", flush=True)
+        sys.exit(1)
     except KeyboardInterrupt:
-        print("Server shutting down...", file=sys.stderr)
-        server.shutdown()
+        print("Shutting down...", flush=True)
+        sys.exit(0)
 
 
 if __name__ == "__main__":
