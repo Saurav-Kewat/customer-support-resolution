@@ -287,8 +287,8 @@ class CustomerSupportEnv:
         """Grade email triage task (EASY)."""
         if action.action_type != "categorize" or not action.category:
             return Reward(
-                total_reward=0.0,
-                correctness_score=0.0,
+                total_reward=0.05,  # Minimum non-zero score
+                correctness_score=0.05,
                 efficiency_bonus=0.0,
                 customer_satisfaction=0.0,
                 details="Invalid action format for triage task"
@@ -297,9 +297,9 @@ class CustomerSupportEnv:
         correct_category = self.current_ticket.get("correct_category")
         is_correct = action.category == correct_category
         
-        correctness_score = 1.0 if is_correct else 0.0
+        correctness_score = 0.95 if is_correct else 0.3  # Avoid 1.0 for correct
         # Efficiency bonus: fewer steps is better
-        efficiency_bonus = max(0.0, 0.2 * (1.0 - self.current_step / self.max_steps))
+        efficiency_bonus = max(0.0, 0.15 * (1.0 - self.current_step / self.max_steps))
         
         # Sentiment affects satisfaction
         sentiment_factor = {"positive": 1.0, "neutral": 0.8, "negative": 0.6}.get(
@@ -307,7 +307,7 @@ class CustomerSupportEnv:
         )
         customer_satisfaction = correctness_score * sentiment_factor
         
-        total_reward = min(1.0, correctness_score * 0.7 + efficiency_bonus + customer_satisfaction * 0.1)
+        total_reward = max(0.05, min(0.95, correctness_score * 0.7 + efficiency_bonus + customer_satisfaction * 0.1))
         
         details = f"Categorized as '{action.category.value}' (correct: {correct_category.value}). " \
                   f"Match: {is_correct}. Efficiency bonus: {efficiency_bonus:.2f}"
@@ -324,8 +324,8 @@ class CustomerSupportEnv:
         """Grade ticket priority assignment (MEDIUM)."""
         if action.action_type != "assign_priority" or not action.priority or not action.suggested_next_step:
             return Reward(
-                total_reward=0.0,
-                correctness_score=0.0,
+                total_reward=0.05,  # Minimum non-zero score
+                correctness_score=0.05,
                 efficiency_bonus=0.0,
                 customer_satisfaction=0.0,
                 details="Invalid action format for priority assignment"
@@ -337,18 +337,18 @@ class CustomerSupportEnv:
         priority_match = action.priority == correct_priority
         step_match = action.suggested_next_step.lower() == correct_step.lower()
         
-        priority_correctness = 1.0 if priority_match else 0.5  # Partial credit for close priority
-        step_correctness = 1.0 if step_match else 0.3  # Penalize wrong next step more
+        priority_correctness = 0.95 if priority_match else 0.5  # Partial credit for close priority
+        step_correctness = 0.95 if step_match else 0.3  # Penalize wrong next step more
         
         correctness_score = (priority_correctness + step_correctness) / 2.0
-        efficiency_bonus = max(0.0, 0.15 * (1.0 - self.current_step / self.max_steps))
+        efficiency_bonus = max(0.0, 0.12 * (1.0 - self.current_step / self.max_steps))
         
         sentiment_factor = {"positive": 0.9, "neutral": 0.8, "negative": 0.7}.get(
             self.current_ticket.get("sentiment", "neutral"), 0.8
         )
         customer_satisfaction = correctness_score * sentiment_factor
         
-        total_reward = min(1.0, correctness_score * 0.6 + efficiency_bonus + customer_satisfaction * 0.25)
+        total_reward = max(0.05, min(0.95, correctness_score * 0.6 + efficiency_bonus + customer_satisfaction * 0.25))
         
         details = f"Priority: {action.priority.value} (correct: {correct_priority.value}). " \
                   f"Next step: {action.suggested_next_step} (correct: {correct_step}). " \
@@ -366,8 +366,8 @@ class CustomerSupportEnv:
         """Grade multi-turn resolution (HARD)."""
         if action.action_type != "respond" or not action.response_text:
             return Reward(
-                total_reward=0.0,
-                correctness_score=0.0,
+                total_reward=0.05,  # Minimum non-zero score
+                correctness_score=0.05,
                 efficiency_bonus=0.0,
                 customer_satisfaction=0.0,
                 details="Invalid action format for resolution"
@@ -384,8 +384,8 @@ class CustomerSupportEnv:
             for keyword in ["help", "try", "issue", "problem", "work", "check", "restart", "verify", "escalate"]
         )
         
-        correctness_score = (1.0 if is_substantive else 0.3) * (1.0 if addresses_issue else 0.5)
-        efficiency_bonus = max(0.0, 0.1 * (1.0 - self.current_step / self.max_steps))
+        correctness_score = (0.90 if is_substantive else 0.3) * (0.95 if addresses_issue else 0.5)
+        efficiency_bonus = max(0.0, 0.08 * (1.0 - self.current_step / self.max_steps))
         
         # Sentiment improves if response is empathetic
         is_empathetic = any(
@@ -397,7 +397,7 @@ class CustomerSupportEnv:
         )
         customer_satisfaction = (0.6 if is_empathetic else 0.4) * sentiment_factor
         
-        total_reward = min(1.0, correctness_score * 0.5 + efficiency_bonus + customer_satisfaction * 0.35)
+        total_reward = max(0.05, min(0.95, correctness_score * 0.5 + efficiency_bonus + customer_satisfaction * 0.35))
         
         details = f"Response length: {response_length} words. Substantive: {is_substantive}. " \
                   f"Addresses issue: {addresses_issue}. Empathetic: {is_empathetic}. " \
