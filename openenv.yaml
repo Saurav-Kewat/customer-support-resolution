@@ -31,8 +31,9 @@ environment:
         type: "categorize"
         required_fields: ["category"]
       grading:
-        criteria: "Accuracy of email categorization"
-        max_score: 1.0
+        criteria: "Accuracy of email categorization (score strictly in (0, 1))"
+        max_score: 0.99
+        min_score: 0.01
         partial_credit: false
     
     - id: "ticket_priority"
@@ -56,8 +57,9 @@ environment:
         type: "assign_priority"
         required_fields: ["priority", "suggested_next_step"]
       grading:
-        criteria: "Correct priority assignment and appropriate next steps"
-        max_score: 1.0
+        criteria: "Correct priority assignment and appropriate next steps (score strictly in (0, 1))"
+        max_score: 0.99
+        min_score: 0.01
         partial_credit: true
     
     - id: "multi_turn_resolution"
@@ -73,7 +75,9 @@ environment:
         criteria: |
           Response quality, empathy, substantiveness, and issue resolution progress.
           Agents earn rewards for helpful, contextually appropriate responses.
-        max_score: 1.0
+          All scores strictly in (0, 1).
+        max_score: 0.99
+        min_score: 0.01
         partial_credit: true
 
   # Action space definition
@@ -140,24 +144,36 @@ environment:
   # Reward space definition
   reward_space:
     type: "Object"
-    description: "Detailed reward breakdown for each action"
+    description: "Detailed reward breakdown for each action - all scores strictly in (0, 1)"
     fields:
       - name: "total_reward"
         type: "float"
-        range: [0.0, 1.0]
-        description: "Total reward for this step"
+        minimum: 0.0
+        maximum: 1.0
+        exclusive_minimum: true
+        exclusive_maximum: true
+        description: "Total reward for this step (strictly between 0 and 1)"
       - name: "correctness_score"
         type: "float"
-        range: [0.0, 1.0]
-        description: "How correct the action was"
+        minimum: 0.0
+        maximum: 1.0
+        exclusive_minimum: true
+        exclusive_maximum: true
+        description: "How correct the action was (strictly between 0 and 1)"
       - name: "efficiency_bonus"
         type: "float"
-        range: [0.0, 0.2]
-        description: "Bonus for solving quickly"
+        minimum: 0.0
+        maximum: 1.0
+        exclusive_minimum: true
+        exclusive_maximum: true
+        description: "Bonus for solving quickly (strictly between 0 and 1)"
       - name: "customer_satisfaction"
         type: "float"
-        range: [0.0, 1.0]
-        description: "Estimated satisfaction signal"
+        minimum: 0.0
+        maximum: 1.0
+        exclusive_minimum: true
+        exclusive_maximum: true
+        description: "Estimated satisfaction signal (strictly between 0 and 1)"
       - name: "details"
         type: "string"
         description: "Human-readable explanation of rewards"
