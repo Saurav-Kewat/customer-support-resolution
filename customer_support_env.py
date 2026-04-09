@@ -289,8 +289,8 @@ class CustomerSupportEnv:
             return Reward(
                 total_reward=0.05,  # Minimum non-zero score
                 correctness_score=0.05,
-                efficiency_bonus=0.0,
-                customer_satisfaction=0.0,
+                efficiency_bonus=0.01,  # Minimum, not 0.0
+                customer_satisfaction=0.01,  # Minimum, not 0.0
                 details="Invalid action format for triage task"
             )
         
@@ -326,8 +326,8 @@ class CustomerSupportEnv:
             return Reward(
                 total_reward=0.05,  # Minimum non-zero score
                 correctness_score=0.05,
-                efficiency_bonus=0.0,
-                customer_satisfaction=0.0,
+                efficiency_bonus=0.01,  # Minimum, not 0.0
+                customer_satisfaction=0.01,  # Minimum, not 0.0
                 details="Invalid action format for priority assignment"
             )
         
@@ -368,8 +368,8 @@ class CustomerSupportEnv:
             return Reward(
                 total_reward=0.05,  # Minimum non-zero score
                 correctness_score=0.05,
-                efficiency_bonus=0.0,
-                customer_satisfaction=0.0,
+                efficiency_bonus=0.01,  # Minimum, not 0.0
+                customer_satisfaction=0.01,  # Minimum, not 0.0
                 details="Invalid action format for resolution"
             )
         
