@@ -271,7 +271,13 @@ def run_episode(client: OpenAI, task_name: str, task_type: TaskType) -> None:
                 break
         
         success = steps_taken > 0 and total_reward > 0.1
-        log_end(success, steps_taken, total_reward, all_rewards)
+        # Score must be strictly in (0, 1) — use average reward, clamped
+        if all_rewards:
+            score = sum(all_rewards) / len(all_rewards)
+        else:
+            score = 0.01
+        score = max(0.01, min(0.99, score))
+        log_end(success, steps_taken, score, all_rewards)
     
     except Exception as e:
         print(f"[ERROR] Episode failed: {e}", flush=True)
