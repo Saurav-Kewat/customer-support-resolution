@@ -1,3 +1,13 @@
+---
+title: Customer Support Resolution
+emoji: 🤖
+colorFrom: blue
+colorTo: purple
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # 🤖 AI Customer Support Resolution System
 
 ## Overview
