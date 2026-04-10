@@ -30,7 +30,8 @@ environment:
       action_format:
         type: "categorize"
         required_fields: ["category"]
-      grading:
+      grader:
+        type: "custom"
         criteria: "Accuracy of email categorization (score strictly in (0, 1))"
         max_score: 0.99
         min_score: 0.01
@@ -56,7 +57,8 @@ environment:
       action_format:
         type: "assign_priority"
         required_fields: ["priority", "suggested_next_step"]
-      grading:
+      grader:
+        type: "custom"
         criteria: "Correct priority assignment and appropriate next steps (score strictly in (0, 1))"
         max_score: 0.99
         min_score: 0.01
@@ -71,7 +73,8 @@ environment:
       action_format:
         type: "respond"
         required_fields: ["response_text"]
-      grading:
+      grader:
+        type: "custom"
         criteria: |
           Response quality, empathy, substantiveness, and issue resolution progress.
           Agents earn rewards for helpful, contextually appropriate responses.

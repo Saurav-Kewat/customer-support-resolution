@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Copy project files first (before pip install)
 COPY customer_support_env.py .
-COPY Inference.py .
+COPY inference.py .
 COPY server.py .
 COPY requirements.txt .
 COPY openenv.yaml .
@@ -25,8 +25,7 @@ RUN pip install --no-cache-dir --disable-pip-version-check \
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
 USER appuser
 
-# Default environment variables
-ENV API_BASE_URL=https://router.huggingface.co/v1
+# Default environment variables (API_BASE_URL and API_KEY are injected by the platform)
 ENV MODEL_NAME=Qwen/Qwen2.5-72B-Instruct
 ENV CUSTOMER_SUPPORT_TASK=email_triage
 ENV CUSTOMER_SUPPORT_SEED=42
@@ -36,5 +35,6 @@ ENV PORT=7860
 # Expose port for OpenEnv API server (HF Spaces uses 7860)
 EXPOSE 7860
 
-# Run OpenEnv API server (required for validation - exposes /reset, /step, /state endpoints)
+# Run server only - serves /reset, /step, /state endpoints for the validator
+# inference.py is executed separately by the validator during Phase 2
 CMD ["python", "server.py"]

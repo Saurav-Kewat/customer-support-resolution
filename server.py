@@ -57,10 +57,9 @@ class OpenEnvHandler(BaseHTTPRequestHandler):
                 request_data = {}
             
             if path == '/reset':
-                # Initialize environment if needed
-                if _env is None:
-                    _task_type = TASK_MAP.get(TASK_NAME, TaskType.EASY)
-                    _env = CustomerSupportEnv(task_type=_task_type, seed=SEED)
+                # Always (re)initialize environment on reset
+                _task_type = TASK_MAP.get(TASK_NAME, TaskType.EASY)
+                _env = CustomerSupportEnv(task_type=_task_type, seed=SEED)
                 
                 # Reset environment
                 obs = _env.reset()
