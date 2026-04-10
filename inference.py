@@ -29,8 +29,9 @@ from customer_support_env import (
     TaskType,
 )
 
-# Configuration from environment - MUST use injected env vars for LiteLLM proxy
-API_KEY = os.environ.get("API_KEY") or os.environ.get("HF_TOKEN", "")
+# Configuration from environment - MUST use injected env vars
+# Docs require: API credentials must be read from environment variables (HF_TOKEN)
+API_KEY = os.environ.get("HF_TOKEN") or os.environ.get("API_KEY", "")
 API_BASE_URL = os.environ.get("API_BASE_URL", "")
 MODEL_NAME = os.environ.get("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
 
@@ -215,57 +216,25 @@ def parse_agent_response(response_text: str, task_type: TaskType) -> Optional[Ac
     return None
 
 
-def main() -> None:
-    """Main entry point - runs inference episode with proper stdout logging."""
+def run_episode(client: OpenAI, task_name: str, task_type: TaskType) -> None:
+    """Run a single episode for a given task."""
+    env = CustomerSupportEnv(task_type=task_type, seed=SEED)
     
-    # Check if API key and base URL are available
-    if not API_KEY:
-        print("[WARN] API_KEY not set - skipping inference (will be injected by validator)", flush=True)
-        return
-    
-    if not API_BASE_URL:
-        print("[WARN] API_BASE_URL not set - skipping inference (will be injected by validator)", flush=True)
-        return
-    
-    # Initialize OpenAI client with injected proxy URL and API key
-    try:
-        client = OpenAI(api_key=API_KEY, base_url=API_BASE_URL)
-    except Exception as e:
-        print(f"[ERROR] Failed to initialize OpenAI client: {e}", flush=True)
-        sys.exit(1)
-    
-    # Get task type
-    if TASK_NAME not in TASK_MAP:
-        print(f"[ERROR] Unknown task: {TASK_NAME}", flush=True)
-        sys.exit(1)
-    
-    task_type = TASK_MAP[TASK_NAME]
-    
-    # Initialize environment
-    try:
-        env = CustomerSupportEnv(task_type=task_type, seed=SEED)
-    except Exception as e:
-        print(f"[ERROR] Failed to initialize environment: {e}", flush=True)
-        sys.exit(1)
-    
-    # Run episode
     total_reward = 0.0
     all_rewards = []
     steps_taken = 0
     last_error = None
     
-    log_start(TASK_NAME, BENCHMARK, MODEL_NAME)
+    log_start(task_name, BENCHMARK, MODEL_NAME)
     
     try:
         obs = env.reset()
         
         for step in range(1, MAX_STEPS + 1):
             try:
-                # Build prompt
                 user_prompt = build_user_prompt(step, obs)
                 system_prompt = SYSTEM_PROMPTS[task_type]
                 
-                # Call LLM
                 response = client.chat.completions.create(
                     model=MODEL_NAME,
                     max_tokens=MAX_TOKENS,
@@ -278,16 +247,13 @@ def main() -> None:
                 
                 response_text = response.choices[0].message.content
                 
-                # Parse response into action
                 action = parse_agent_response(response_text, task_type)
                 if not action:
                     raise ValueError("Failed to parse agent response")
                 
-                # Execute action
                 obs, reward, done, info = env.step(action)
                 
-                # Log step (REQUIRED FORMAT)
-                action_str = response_text.replace("\n", " ")[:100]  # Truncate for logging
+                action_str = response_text.replace("\n", " ")[:100]
                 log_step(step, action_str, reward.total_reward, done, last_error)
                 
                 total_reward += reward.total_reward
@@ -304,15 +270,45 @@ def main() -> None:
                 log_step(step, "<error>", 0.01, True, error_msg)
                 break
         
-        # Calculate success
         success = steps_taken > 0 and total_reward > 0.1
-        
-        # Log end (REQUIRED FORMAT)
         log_end(success, steps_taken, total_reward, all_rewards)
     
     except Exception as e:
         print(f"[ERROR] Episode failed: {e}", flush=True)
         log_end(False, 0, 0.01, [0.01])
+
+
+def main() -> None:
+    """Main entry point - runs inference across ALL tasks for baseline scores."""
+    
+    # Check if API key and base URL are available
+    if not API_KEY:
+        print("[WARN] HF_TOKEN/API_KEY not set - skipping inference (will be injected by validator)", flush=True)
+        return
+    
+    if not API_BASE_URL:
+        print("[WARN] API_BASE_URL not set - skipping inference (will be injected by validator)", flush=True)
+        return
+    
+    # Initialize OpenAI client with injected proxy URL and API key
+    try:
+        client = OpenAI(api_key=API_KEY, base_url=API_BASE_URL)
+    except Exception as e:
+        print(f"[ERROR] Failed to initialize OpenAI client: {e}", flush=True)
+        sys.exit(1)
+    
+    # Run all 3 tasks to produce baseline scores across all tasks
+    all_tasks = [
+        ("email_triage", TaskType.EASY),
+        ("ticket_priority", TaskType.MEDIUM),
+        ("multi_turn_resolution", TaskType.HARD),
+    ]
+    
+    for task_name, task_type in all_tasks:
+        try:
+            run_episode(client, task_name, task_type)
+        except Exception as e:
+            print(f"[ERROR] Task {task_name} failed: {e}", flush=True)
 
 
 if __name__ == "__main__":
