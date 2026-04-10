@@ -239,10 +239,10 @@ class CustomerSupportEnv:
         # Validate action matches task type
         if action.task_type != self.task_type:
             reward_obj = Reward(
-                total_reward=-0.1,
-                correctness_score=0.0,
-                efficiency_bonus=0.0,
-                customer_satisfaction=-0.1,
+                total_reward=0.01,
+                correctness_score=0.01,
+                efficiency_bonus=0.01,
+                customer_satisfaction=0.01,
                 details=f"Task mismatch: expected {self.task_type.value}, got {action.task_type.value}"
             )
             self.episode_rewards.append(reward_obj.total_reward)
@@ -297,17 +297,17 @@ class CustomerSupportEnv:
         correct_category = self.current_ticket.get("correct_category")
         is_correct = action.category == correct_category
         
-        correctness_score = max(0.05, min(0.95, 0.95 if is_correct else 0.3))  # Strictly (0, 1)
+        correctness_score = max(0.01, min(0.99, 0.95 if is_correct else 0.25))  # Strictly (0, 1)
         # Efficiency bonus: fewer steps is better
-        efficiency_bonus = max(0.01, min(0.90, 0.15 * (1.0 - self.current_step / self.max_steps)))  # Strictly (0, 1)
+        efficiency_bonus = max(0.01, min(0.99, 0.15 * (1.0 - self.current_step / self.max_steps)))  # Strictly (0, 1)
         
         # Sentiment affects satisfaction
         sentiment_factor = {"positive": 1.0, "neutral": 0.8, "negative": 0.6}.get(
             self.current_ticket.get("sentiment", "neutral"), 0.8
         )
-        customer_satisfaction = max(0.01, min(0.90, correctness_score * sentiment_factor))  # Strictly (0, 1)
+        customer_satisfaction = max(0.01, min(0.99, correctness_score * sentiment_factor))  # Strictly (0, 1)
         
-        total_reward = max(0.01, min(0.99, correctness_score * 0.7 + efficiency_bonus + customer_satisfaction * 0.1))
+        total_reward = max(0.01, min(0.99, (correctness_score * 0.7 + efficiency_bonus + customer_satisfaction * 0.1) * 0.95))
         
         details = f"Categorized as '{action.category.value}' (correct: {correct_category.value}). " \
                   f"Match: {is_correct}. Efficiency bonus: {efficiency_bonus:.2f}"
@@ -337,18 +337,18 @@ class CustomerSupportEnv:
         priority_match = action.priority == correct_priority
         step_match = action.suggested_next_step.lower() == correct_step.lower()
         
-        priority_correctness = 0.95 if priority_match else 0.5  # Partial credit for close priority
-        step_correctness = 0.95 if step_match else 0.3  # Penalize wrong next step more
+        priority_correctness = 0.95 if priority_match else 0.25  # Partial credit for close priority
+        step_correctness = 0.95 if step_match else 0.2  # Penalize wrong next step more
         
-        correctness_score = max(0.05, min(0.95, (priority_correctness + step_correctness) / 2.0))  # Strictly (0, 1)
-        efficiency_bonus = max(0.01, min(0.90, 0.12 * (1.0 - self.current_step / self.max_steps)))  # Strictly (0, 1)
+        correctness_score = max(0.01, min(0.99, (priority_correctness + step_correctness) / 2.0))  # Strictly (0, 1)
+        efficiency_bonus = max(0.01, min(0.99, 0.12 * (1.0 - self.current_step / self.max_steps)))  # Strictly (0, 1)
         
         sentiment_factor = {"positive": 0.9, "neutral": 0.8, "negative": 0.7}.get(
             self.current_ticket.get("sentiment", "neutral"), 0.8
         )
-        customer_satisfaction = max(0.01, min(0.90, correctness_score * sentiment_factor))  # Strictly (0, 1)
+        customer_satisfaction = max(0.01, min(0.99, correctness_score * sentiment_factor))  # Strictly (0, 1)
         
-        total_reward = max(0.01, min(0.99, correctness_score * 0.6 + efficiency_bonus + customer_satisfaction * 0.25))
+        total_reward = max(0.01, min(0.99, (correctness_score * 0.6 + efficiency_bonus + customer_satisfaction * 0.25) * 0.95))
         
         details = f"Priority: {action.priority.value} (correct: {correct_priority.value}). " \
                   f"Next step: {action.suggested_next_step} (correct: {correct_step}). " \
@@ -384,8 +384,8 @@ class CustomerSupportEnv:
             for keyword in ["help", "try", "issue", "problem", "work", "check", "restart", "verify", "escalate"]
         )
         
-        correctness_score = max(0.05, min(0.95, (0.90 if is_substantive else 0.3) * (0.95 if addresses_issue else 0.5)))  # Strictly (0, 1)
-        efficiency_bonus = max(0.01, min(0.90, 0.08 * (1.0 - self.current_step / self.max_steps)))  # Strictly (0, 1)
+        correctness_score = max(0.01, min(0.99, (0.90 if is_substantive else 0.25) * (0.95 if addresses_issue else 0.4)))  # Strictly (0, 1)
+        efficiency_bonus = max(0.01, min(0.99, 0.08 * (1.0 - self.current_step / self.max_steps)))  # Strictly (0, 1)
         
         # Sentiment improves if response is empathetic
         is_empathetic = any(
@@ -395,9 +395,9 @@ class CustomerSupportEnv:
         sentiment_factor = {"positive": 0.95, "neutral": 0.75, "negative": 0.5}.get(
             self._get_current_sentiment(), "neutral"
         )
-        customer_satisfaction = max(0.01, min(0.90, (0.6 if is_empathetic else 0.4) * sentiment_factor))  # Strictly (0, 1)
+        customer_satisfaction = max(0.01, min(0.99, (0.6 if is_empathetic else 0.3) * sentiment_factor))  # Strictly (0, 1)
         
-        total_reward = max(0.01, min(0.99, correctness_score * 0.5 + efficiency_bonus + customer_satisfaction * 0.35))
+        total_reward = max(0.01, min(0.99, (correctness_score * 0.5 + efficiency_bonus + customer_satisfaction * 0.35) * 0.95))
         
         details = f"Response length: {response_length} words. Substantive: {is_substantive}. " \
                   f"Addresses issue: {addresses_issue}. Empathetic: {is_empathetic}. " \
