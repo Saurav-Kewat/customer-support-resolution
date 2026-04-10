@@ -10,7 +10,7 @@ environment:
     real-world support tickets with varying complexity levels. The system provides
     meaningful reward signals based on correctness, efficiency, and customer satisfaction.
   
-  author: "OpenEnv Contributor"
+  author: "Saurav Kewat"
   license: "MIT"
   
   # Three difficulty levels required by spec

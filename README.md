@@ -12,505 +12,180 @@ tags:
 
 # 🤖 AI Customer Support Resolution System
 
-## Overview
+> A production-inspired [OpenEnv](https://github.com/openenv/spec) environment for training AI agents to handle customer support tickets — from simple email triage to complex multi-turn conversations.
 
-**AI Customer Support Resolution System** is a real-world, production-inspired OpenEnv environment designed to train AI agents to handle customer support tickets efficiently and empathetically.
-
-This environment tackles a practical business problem: automating customer support workflows while maintaining quality and human satisfaction. It provides three progressively harder tasks that mirror actual support operations:
-
-1. **Email Triage (Easy)** — Categorize incoming customer emails
-2. **Ticket Priority Assignment (Medium)** — Assess priority and recommend next steps  
-3. **Multi-turn Resolution (Hard)** — Conduct substantive, empathetic support conversations
+[![OpenEnv](https://img.shields.io/badge/OpenEnv-compatible-blue)](https://github.com/openenv/spec)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)](Dockerfile)
+[![HF Space](https://img.shields.io/badge/🤗%20Hugging%20Face-Space-orange)](https://huggingface.co/spaces/Saurav-Kewat/customer-support-resolution)
 
 ---
 
-## 🎯 Motivation
+## Motivation
 
-Customer support is complex, expensive, and time-consuming. Organizations struggle to:
-- **Triage tickets efficiently** without losing context or misclassifying issues
-- **Prioritize urgent problems** to prevent customer churn and data loss
-- **Handle multi-turn conversations** with empathy while resolving issues
+Customer support automation is a high-impact real-world problem. Organizations need AI that can:
 
-This environment trains AI agents to **learn these skills through structured feedback**, with rewards based on correctness, efficiency, and customer satisfaction.
+- **Triage tickets** without misclassification
+- **Prioritize urgent issues** to prevent churn
+- **Resolve conversations** with empathy and substance
+
+This environment provides structured feedback via correctness, efficiency, and satisfaction signals — enabling agents to learn these skills through dense rewards.
 
 ---
 
-## 📊 Environment Description
+## Tasks
 
-### Real-World Grounding
+Three progressively harder tasks mirror actual support workflows:
 
-The environment uses **realistic customer support scenarios**:
-- Billing disputes and payment failures
-- Technical bugs and system outages  
-- Account access and authentication issues
-- Feature requests and general feedback
+| Task | Difficulty | Objective | Grading |
+|------|-----------|-----------|---------|
+| **Email Triage** | Easy | Categorize emails into 5 categories | Exact match (binary) |
+| **Ticket Priority** | Medium | Assign priority + recommend next step | Partial credit for close matches |
+| **Multi-turn Resolution** | Hard | Conduct empathetic, substantive conversations | Quality, empathy, and resolution progress |
 
-Each scenario is grounded in actual support patterns with:
-- Sentiment progression (frustration → satisfaction)
-- Multi-turn interactions requiring context retention
-- Partial credit for reasonable but imperfect solutions
+### Email Triage (Easy)
 
-### Action Space
+Classify emails as: `billing`, `technical`, `account`, `feedback`, or `other`.
 
-The agent takes **task-specific structured actions**:
-
-#### Easy (Email Triage)
 ```json
-{
-  "task_type": "email_triage",
-  "action_type": "categorize",
-  "category": "billing|technical|account|feedback|other"
-}
+{"action_type": "categorize", "category": "billing"}
 ```
 
-#### Medium (Ticket Priority)
+### Ticket Priority (Medium)
+
+Assign priority (`urgent`/`high`/`medium`/`low`) and a next step (`escalate_to_engineering`, `process_payment_retry`, `send_documentation`, `investigate_data_loss`, `offer_extension`).
+
 ```json
-{
-  "task_type": "ticket_priority", 
-  "action_type": "assign_priority",
-  "priority": "urgent|high|medium|low",
-  "suggested_next_step": "escalate_to_engineering|process_payment_retry|send_documentation|investigate_data_loss|offer_extension"
-}
+{"action_type": "assign_priority", "priority": "urgent", "suggested_next_step": "escalate_to_engineering"}
 ```
 
-#### Hard (Multi-turn Resolution)
+### Multi-turn Resolution (Hard)
+
+Provide helpful, empathetic responses across 3-4 turns. Graded on substantiveness, issue addressing, and empathy.
+
 ```json
-{
-  "task_type": "multi_turn_resolution",
-  "action_type": "respond",
-  "response_text": "<customer support response>"
-}
+{"action_type": "respond", "response_text": "I understand how frustrating this must be..."}
 ```
-
-### Observation Space
-
-Agents receive structured observations:
-
-```python
-Observation(
-    task_type: TaskType,           # Current task (easy/medium/hard)
-    ticket_id: str,                # Unique ticket ID
-    customer_message: str,         # Customer's current message
-    previous_context: Optional[str],  # Background/history
-    timestamp: str,                # ISO timestamp
-    customer_sentiment: str,       # "positive" | "neutral" | "negative"
-    current_resolution_steps: List[str],  # Steps taken so far
-    step_number: int              # Current step (1-8)
-)
-```
-
-### Reward Function
-
-Rewards are **meaningful and multi-dimensional**:
-
-```python
-Reward(
-    total_reward: float (0.0-1.0),           # Overall score
-    correctness_score: float (0.0-1.0),     # Accuracy of action
-    efficiency_bonus: float (0.0-0.2),      # Bonus for speed
-    customer_satisfaction: float (0.0-1.0), # Satisfaction signal
-    details: str                             # Explanation
-)
-```
-
-#### Easy Task Grading
-- **Correctness**: Binary (correct category = 1.0, else 0.0)
-- **Efficiency Bonus**: 0-0.2 based on steps taken
-- **Sentiment Factor**: Negative sentiment → lower satisfaction baseline
-- **Total**: `correctness * 0.7 + efficiency_bonus + satisfaction * 0.1`
-
-#### Medium Task Grading  
-- **Priority Correctness**: 1.0 if exact, 0.5 if close
-- **Step Correctness**: 1.0 if exact, 0.3 if wrong
-- **Efficiency Bonus**: Up to 0.15
-- **Total**: `(priority_corr + step_corr) / 2 * 0.6 + efficiency + satisfaction * 0.25`
-
-#### Hard Task Grading
-- **Substantiveness**: Word count > 5 words
-- **Issue Addressing**: Keywords present ("help", "try", "escalate", etc.)
-- **Empathy**: Empathetic language detected ("understand", "sorry", "appreciate")
-- **Total**: `correctness * 0.5 + efficiency + satisfaction * 0.35`
 
 ---
 
-## 📋 Tasks & Difficulty Levels
+## Observation & Reward Spaces
 
-### Task 1: Email Triage (EASY)
-**Objective**: Correctly categorize customer emails into 5 categories
+**Observation** — Pydantic model with:
 
-| Category | Description |
-|----------|-----------|
-| **billing** | Charges, payments, subscriptions, invoices |
-| **technical** | Tech issues, bug reports, how-to |
-| **account** | Access, passwords, profiles |
-| **feedback** | Praise, feature requests, general feedback |
-| **other** | Miscellaneous |
+| Field | Type | Description |
+|-------|------|-------------|
+| `ticket_id` | `str` | Unique ticket identifier |
+| `customer_message` | `str` | Customer's current message |
+| `previous_context` | `str?` | Background / conversation history |
+| `customer_sentiment` | `str` | `positive` / `neutral` / `negative` |
+| `step_number` | `int` | Current step (1–8) |
 
-**Sample Tickets**:
-- "My billing statement shows incorrect charges" → **billing**
-- "How do I enable two-factor authentication?" → **technical**
-- "I can't log in to my account" → **account**
+**Reward** — Multi-dimensional feedback:
 
-**Grading**: Exact match required. Efficiency bonus for early correct categorization.
+| Component | Range | Description |
+|-----------|-------|-------------|
+| `total_reward` | (0, 1) | Overall score |
+| `correctness_score` | (0, 1) | Accuracy of the action |
+| `efficiency_bonus` | (0, 1) | Bonus for fewer steps |
+| `customer_satisfaction` | (0, 1) | Estimated satisfaction signal |
 
----
-
-### Task 2: Ticket Priority (MEDIUM)
-**Objective**: Assign priority and recommend next resolution step
-
-| Priority | Description | Example |
-|----------|---------|---------|
-| **urgent** | System outages, critical issues | "Payment processing down for all users" |
-| **high** | Data loss, widespread failures | "3 customers missing data after update" |
-| **medium** | Significant but isolated issues | "Subscription renewal failed for one customer" |
-| **low** | General questions, documentation | "How do I understand the pricing page?" |
-
-**Next Steps**: 
-- `escalate_to_engineering` — Technical/system issues
-- `process_payment_retry` — Billing issues
-- `send_documentation` — Knowledge base answers
-- `investigate_data_loss` — Data integrity concerns
-- `offer_extension` — Subscription/plan adjustments
-
-**Grading**: 
-- Exact priority + step match = 1.0
-- Close priority + wrong step = 0.5-0.6
-- Completely wrong = 0.0
+All scores are strictly between 0 and 1 (exclusive).
 
 ---
 
-### Task 3: Multi-turn Resolution (HARD)
-**Objective**: Provide helpful, empathetic responses in a 3-4 turn conversation
+## Baseline Scores
 
-**Example Scenario**:
-```
-Customer: "My API key stopped working this morning"
-→ Agent: "I understand how frustrating this must be. Let's troubleshoot:
-  1. Can you confirm if you've regenerated the key?
-  2. Are you seeing a specific error message?
-  Let me know and we'll get this resolved quickly."
+Running with **Qwen/Qwen2.5-72B-Instruct** (seed=42):
 
-Customer: "I regenerated it and it still doesn't work. I'm getting 401 errors."
-→ Agent: "Thanks for trying that. 401 errors indicate an authentication issue.
-  Let's verify your API scope. Can you check your token permissions?
-  If that doesn't work, I'll escalate this to our engineering team."
-
-Customer: "Yes, I've restarted the service multiple times."
-→ Agent: "Great! Since restarting didn't help and the token seems valid,
-  this looks like it needs engineering investigation. I'm escalating 
-  your ticket now and someone will be in touch within 2 hours."
-```
-
-**Grading**:
-- **Substantiveness**: 2-3 sentences minimum
-- **Issue Addressing**: References customer's problem
-- **Empathy**: Shows understanding and concern
-- **Progression**: Moves toward resolution
+| Task | Avg Score | Success Rate |
+|------|-----------|-------------|
+| Email Triage | ~0.78 | 85% |
+| Ticket Priority | ~0.65 | 72% |
+| Multi-turn Resolution | ~0.52 | 58% |
 
 ---
 
-## 🚀 Setup & Usage
+## Quick Start
 
-### Prerequisites
-- Python 3.10+
-- OpenAI-compatible LLM API (or Hugging Face Inference API)
-- pip or conda
+### Local
 
-### Installation
-
-1. **Clone the repository**:
 ```bash
-git clone <repo-url>
+git clone https://github.com/Saurav-Kewat/customer-support-resolution.git
 cd customer-support-resolution
-```
-
-2. **Install dependencies**:
-```bash
 pip install -r requirements.txt
+
+export HF_TOKEN="your-token"
+export API_BASE_URL="https://router.huggingface.co/v1"
+python inference.py
 ```
 
-3. **Set environment variables**:
+### Docker
+
 ```bash
-export HF_TOKEN="your-api-key-here"              # Required
-export API_BASE_URL="https://router.huggingface.co/v1"  # Or your endpoint
-export MODEL_NAME="Qwen/Qwen2.5-72B-Instruct"    # Or your model
-export CUSTOMER_SUPPORT_TASK="email_triage"      # Or ticket_priority, multi_turn_resolution
-export CUSTOMER_SUPPORT_SEED="42"                # For reproducibility
+docker build -t customer-support-env .
+docker run --rm -e HF_TOKEN=$HF_TOKEN -p 7860:7860 customer-support-env
 ```
 
-### Running Locally
+### API Endpoints (served by the container)
 
-**Run a single episode**:
-```bash
-python Inference.py
-```
-
-**Run with specific task**:
-```bash
-CUSTOMER_SUPPORT_TASK=ticket_priority python Inference.py
-CUSTOMER_SUPPORT_TASK=multi_turn_resolution python Inference.py
-```
-
-**Expected output**:
-```
-[START] task=email_triage env=customer_support_resolution model=Qwen/Qwen2.5-72B-Instruct
-[STEP] step=1 action=billing reward=0.75 done=false error=null
-[STEP] step=2 action=technical reward=0.80 done=false error=null
-[END] success=true steps=2 score=0.755 rewards=0.75,0.80
-```
-
-### Docker Deployment
-
-**Build the image**:
-```bash
-docker build -t customer-support-env:latest .
-```
-
-**Run locally**:
-```bash
-docker run --rm \
-  -e HF_TOKEN=$HF_TOKEN \
-  -e CUSTOMER_SUPPORT_TASK=email_triage \
-  customer-support-env:latest
-```
-
-**Deploy to Hugging Face Spaces**:
-1. Create a new Space on Hugging Face
-2. Select "Docker" as the SDK
-3. Push this repository to the Space
-4. Set environment variables in Space settings
-5. Space will auto-build and serve the environment
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/reset` | Reset environment, get initial observation |
+| `POST` | `/step` | Execute action, get (observation, reward, done, info) |
+| `POST` | `/state` | Get current environment state |
+| `GET` | `/` | Health check |
 
 ---
 
-## 📈 Baseline Scores
+## Project Structure
 
-### Inference Script Performance
-
-Running with Qwen 2.5-72B-Instruct (results with seed=42):
-
-| Task | Success Rate | Avg Score | Avg Total Reward |
-|------|-------------|-----------|-----------------|
-| Email Triage (Easy) | 85% | 0.78 | 0.78 |
-| Ticket Priority (Medium) | 72% | 0.65 | 0.65 |
-| Multi-turn Resolution (Hard) | 58% | 0.52 | 0.52 |
-
-### How to Reproduce
-```bash
-# Run 3 episodes of each task with same seed
-export HF_TOKEN="your-key"
-export MODEL_NAME="Qwen/Qwen2.5-72B-Instruct"
-
-for task in email_triage ticket_priority multi_turn_resolution; do
-  export CUSTOMER_SUPPORT_TASK=$task
-  export CUSTOMER_SUPPORT_SEED=42
-  python Inference.py
-  python Inference.py
-  python Inference.py
-done
 ```
-
----
-
-## 🏗️ Environment Architecture
-
-### File Structure
-```
-customer-support-resolution/
-├── customer_support_env.py    # Core environment (OpenEnv spec)
-├── Inference.py               # Baseline inference script
-├── requirements.txt           # Python dependencies
+├── customer_support_env.py   # Core environment (Pydantic models, graders)
+├── inference.py              # Baseline inference script (runs all 3 tasks)
+├── server.py                 # HTTP API server (reset/step/state)
 ├── openenv.yaml              # OpenEnv specification
-├── Dockerfile                # Docker configuration
-├── README.md                 # This file
-└── validation.sh             # Validation script
-```
-
-### Key Classes
-
-**CustomerSupportEnv**
-```python
-class CustomerSupportEnv:
-    def __init__(self, task_type: TaskType, seed: int)
-    def reset(self) -> Observation
-    def step(self, action: Action) -> Tuple[Observation, Reward, bool, Dict]
-    def state(self) -> Dict
-```
-
-**Models** (Pydantic)
-- `Observation` — What the agent observes
-- `Action` — What the agent can do
-- `Reward` — Feedback signal
-- `TaskType` — Enum: EASY, MEDIUM, HARD
-- `Priority` / `Category` — Enums for task-specific choices
-
----
-
-## 🔄 API Reference
-
-### Environment Methods
-
-#### `reset() → Observation`
-Initialize a new episode with a random ticket.
-
-```python
-env = CustomerSupportEnv(TaskType.EASY)
-obs = env.reset()
-print(obs.customer_message)  # "My billing statement shows incorrect charges..."
-```
-
-#### `step(action: Action) → Tuple[Observation, Reward, bool, Dict]`
-Execute one action and receive feedback.
-
-```python
-action = Action(
-    task_type=TaskType.EASY,
-    action_type="categorize",
-    category=Category.BILLING
-)
-obs, reward, done, info = env.step(action)
-print(f"Reward: {reward.total_reward}")  # 0.75
-```
-
-#### `state() → Dict`
-Get full environment state (for debugging).
-
-```python
-state = env.state()
-print(state["total_reward"])      # Sum of episode rewards
-print(state["current_step"])      # Current step (1-8)
+├── Dockerfile                # Container configuration
+├── requirements.txt          # Python dependencies
+└── README.md
 ```
 
 ---
 
-## 🧪 Testing & Validation
+## Environment API
 
-### OpenEnv Compliance
-```bash
-openenv validate openenv.yaml
-```
-
-### Unit Tests
-```bash
-python -m pytest tests/ -v
-```
-
-### Integration Test
-```bash
-python -c "
+```python
 from customer_support_env import CustomerSupportEnv, TaskType, Action, Category
-env = CustomerSupportEnv(TaskType.EASY)
+
+env = CustomerSupportEnv(TaskType.EASY, seed=42)
 obs = env.reset()
-action = Action(task_type=TaskType.EASY, action_type='categorize', category=Category.BILLING)
+
+action = Action(task_type=TaskType.EASY, action_type="categorize", category=Category.BILLING)
 obs, reward, done, info = env.step(action)
-assert 0 <= reward.total_reward <= 1.0
-print('✓ Integration test passed')
-"
+
+print(f"Reward: {reward.total_reward:.2f}")  # 0.75
+print(f"Details: {reward.details}")
 ```
 
 ---
 
-## 📊 Metrics & Evaluation
+## OpenEnv Compliance
 
-### Episode Metrics
-- **Total Reward**: Sum of step rewards (target: > 0.5)
-- **Success Rate**: Episodes where total_reward > 0.1
-- **Efficiency**: Steps to completion (lower is better)
-- **Correctness**: Task-specific grading accuracy
-
-### Agent Leaderboard Criteria
-1. **Consistency**: Low variance across multiple seeds
-2. **Task Generalization**: Performance on all three tasks
-3. **Efficiency**: Quick resolution with few steps
-4. **Robustness**: Graceful handling of edge cases
-
----
-
-## 🐛 Troubleshooting
-
-### API Connection Errors
-```
-Error: Failed to connect to API_BASE_URL
-```
-**Solution**: Verify your `API_BASE_URL` and `HF_TOKEN` are correct.
-
-### Model Not Found
-```
-Error: Model 'Qwen/Qwen2.5-72B-Instruct' not found
-```
-**Solution**: Use an available model or set `MODEL_NAME` to correct value.
-
-### Parse Failures
-```
-[ERROR] Failed to parse response
-```
-**Solution**: Model response didn't match expected format. Check system prompts and task descriptions.
-
-### Docker Build Fails
-```
-Error: no such file or directory: requirements.txt
-```
-**Solution**: Ensure all required files are in the project root.
+| Requirement | Status |
+|-------------|--------|
+| Pydantic Observation / Action / Reward | ✅ |
+| `step()` → (obs, reward, done, info) | ✅ |
+| `reset()` → observation | ✅ |
+| `state()` → dict | ✅ |
+| `openenv.yaml` with metadata | ✅ |
+| 3 tasks (easy → hard) with graders | ✅ |
+| Scores strictly in (0, 1) | ✅ |
+| Dense rewards (not just at episode end) | ✅ |
+| Baseline inference script with `HF_TOKEN` | ✅ |
+| Dockerized deployment | ✅ |
 
 ---
 
-## 🎓 Learning Resources
+## License
 
-- **OpenEnv Specification**: https://github.com/openenv/spec
-- **Customer Support Best Practices**: https://www.zendesk.com/resources/
-- **LLM Prompt Engineering**: https://platform.openai.com/docs/guides/prompt-engineering
-- **Reinforcement Learning**: https://huggingface.co/learn/deep-rl-course/
-
----
-
-## 📝 Citation
-
-If you use this environment in research, please cite:
-
-```bibtex
-@dataset{customer_support_resolution_2024,
-  title={AI Customer Support Resolution System},
-  author={OpenEnv Contributors},
-  year={2024},
-  url={https://huggingface.co/spaces/openenv/customer-support-resolution}
-}
-```
-
----
-
-## 📄 License
-
-MIT License - see LICENSE file for details.
-
----
-
-## 🤝 Contributing
-
-Contributions welcome! Please:
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/your-idea`)
-3. Commit changes (`git commit -am 'Add feature'`)
-4. Push to branch (`git push origin feature/your-idea`)
-5. Open a Pull Request
-
----
-
-## 📧 Support
-
-For questions or issues:
-- **GitHub Issues**: [repo]/issues
-- **Email**: support@openenv.ai
-- **Discussions**: [repo]/discussions
-
----
-
-## ✨ Acknowledgments
-
-This environment was built to demonstrate real-world OpenEnv compliance while tackling a practical business problem: customer support automation. It combines:
-
-- **Real-world grounding** from actual support operations
-- **Multi-task learning** across difficulty levels
-- **Dense reward signals** for meaningful agent feedback
-- **Structured evaluation** with OpenEnv specification
-
-Happy learning! 🚀
+[MIT](LICENSE)
