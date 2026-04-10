@@ -19,7 +19,6 @@ import sys
 import textwrap
 from typing import List, Optional
 
-import httpx
 from openai import OpenAI
 
 from customer_support_env import (
@@ -226,8 +225,7 @@ def main() -> None:
     
     # Initialize OpenAI client
     try:
-        http_client = httpx.Client(timeout=30.0, verify=True)
-        client = OpenAI(api_key=API_KEY, base_url=API_BASE_URL, http_client=http_client)
+        client = OpenAI(api_key=API_KEY, base_url=API_BASE_URL)
     except Exception as e:
         print(f"[ERROR] Failed to initialize OpenAI client: {e}", flush=True)
         sys.exit(1)

@@ -5,7 +5,6 @@ both locally without API credentials AND with LLM inference
 import os
 from typing import Optional
 
-import httpx
 from openai import OpenAI
 
 from customer_support_env import (
@@ -149,16 +148,9 @@ def demonstrate_llm_inference():
     print(f"API endpoint: {API_BASE_URL}\n")
     
     try:
-        # Create custom http_client to avoid proxy issues
-        http_client = httpx.Client(
-            timeout=30.0,
-            verify=True,
-        )
-        
         client = OpenAI(
             api_key=API_KEY,
-            base_url=API_BASE_URL,
-            http_client=http_client
+            base_url=API_BASE_URL
         )
         
         # Test connection
