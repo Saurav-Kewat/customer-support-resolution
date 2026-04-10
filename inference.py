@@ -118,17 +118,22 @@ def log_step(step: int, action: str, reward: float, done: bool, error: Optional[
     """Log step execution."""
     error_val = error if error else "null"
     done_val = str(done).lower()
+    # Clamp reward to strictly (0, 1) before formatting to prevent rounding to 0.00 or 1.00
+    clamped_reward = max(0.01, min(0.99, reward))
     print(
-        f"[STEP] step={step} action={action} reward={reward:.2f} done={done_val} error={error_val}",
+        f"[STEP] step={step} action={action} reward={clamped_reward:.2f} done={done_val} error={error_val}",
         flush=True,
     )
 
 
 def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> None:
     """Log episode end."""
-    rewards_str = ",".join(f"{r:.2f}" for r in rewards)
+    # Clamp all values to strictly (0, 1) before formatting
+    clamped_score = max(0.01, min(0.99, score))
+    clamped_rewards = [max(0.01, min(0.99, r)) for r in rewards]
+    rewards_str = ",".join(f"{r:.2f}" for r in clamped_rewards)
     print(
-        f"[END] success={str(success).lower()} steps={steps} score={score:.3f} rewards={rewards_str}",
+        f"[END] success={str(success).lower()} steps={steps} score={clamped_score:.2f} rewards={rewards_str}",
         flush=True,
     )
 
